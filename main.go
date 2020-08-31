@@ -61,15 +61,14 @@ func main() {
 	if err != nil {
 		usage(err)
 	}
-	repo, err := repository.NewRepoWithExclusion(args.RepoName(), args.Exclusions())
+	repo, err := repository.NewRepoWithExclusion(
+		args.RepoName(), args.Exclusions())
 	if err != nil {
 		usage(err)
 	}
 	if args.GetCommand() == arguments.Tidy {
 		err = repo.Apply(func(m *repository.Module) error {
-			m.Report()
-			editor := edit.New(m, args.DoIt())
-			return editor.Tidy()
+			return edit.New(m, args.DoIt()).Tidy()
 		})
 	} else {
 		targetDep := repo.FindModuleByRelPath(args.Dependency())

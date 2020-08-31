@@ -42,9 +42,9 @@ func (m *Module) FullPath() string {
 }
 
 func (m *Module) Report() {
-	fmt.Printf("FullPath: %s\n", m.FullPath())
-	fmt.Printf(" RelPath: %s\n", m.InRepoPath())
-	fmt.Printf("   Depth: %d\n", m.Depth())
+	fmt.Printf("   FullPath: %s\n", m.FullPath())
+	fmt.Printf(" InRepoPath: %s\n", m.InRepoPath())
+	fmt.Printf("      Depth: %d\n", m.Depth())
 	fmt.Println()
 }
 

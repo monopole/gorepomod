@@ -32,6 +32,7 @@ var (
 		"examples",
 		"hack",
 		"site",
+		"releasing",
 	}
 )
 
