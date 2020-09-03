@@ -47,7 +47,7 @@ const (
 type Args struct {
 	cmd        Command
 	dependency string
-	version    repository.SemanticVersion
+	version    *repository.SemanticVersion
 	repo       string
 	doIt       bool
 }
@@ -68,7 +68,7 @@ func (a *Args) RepoName() string {
 	return a.repo
 }
 
-func (a *Args) Version() repository.SemanticVersion {
+func (a *Args) Version() *repository.SemanticVersion {
 	return a.version
 }
 
@@ -111,7 +111,7 @@ func Parse() (result *Args, err error) {
 		if argCount() < 3 {
 			return nil, fmt.Errorf("pin needs a version argument, e.g. v1.2.3")
 		}
-		result.version, err = repository.NewSemanticVersion(os.Args[3])
+		result.version, err = repository.ParseVersion(os.Args[3])
 		if err != nil {
 			return nil, err
 		}

@@ -51,16 +51,16 @@ func (e *Editor) Tidy() error {
 }
 
 func (e *Editor) Pin(
-	target *repository.Module, oldV, newV repository.SemanticVersion) error {
+	target *repository.Module, oldV, newV *repository.SemanticVersion) error {
 	return e.run(
 		"edit",
-		"-dropreplace="+target.FullPath()+"@"+string(oldV),
-		"-require="+target.FullPath()+"@"+string(newV),
+		"-dropreplace="+target.FullPath()+"@"+oldV.String(),
+		"-require="+target.FullPath()+"@"+newV.String(),
 	)
 }
 
 func (e *Editor) UnPin(
-	depth int, target *repository.Module, oldV repository.SemanticVersion) error {
+	depth int, target *repository.Module, oldV *repository.SemanticVersion) error {
 	var r strings.Builder
 	r.WriteString(target.FullPath())
 	r.WriteString("@")

@@ -52,13 +52,17 @@ func (m *Module) Depth() int {
 	return strings.Count(m.InRepoPath(), string(filepath.Separator)) + 1
 }
 
-func (m *Module) DependsOn(target *Module) (bool, SemanticVersion) {
+func (m *Module) DependsOn(target *Module) (bool, *SemanticVersion) {
 	for _, r := range m.pm.Require {
 		if r.Mod.Path == target.FullPath() {
-			return true, SemanticVersion(r.Mod.Version)
+			v, err := ParseVersion(r.Mod.Version)
+			if err != nil {
+				panic(err)
+			}
+			return true, v
 		}
 	}
-	return false, ""
+	return false, nil
 }
 
 func readGoModFile(path string) (*modfile.File, error) {
