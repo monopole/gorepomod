@@ -1,4 +1,4 @@
-package repository
+package semver
 
 import (
 	"testing"
@@ -7,17 +7,17 @@ import (
 func TestParse(t *testing.T) {
 	var testCases = map[string]struct {
 		raw    string
-		v      *SemanticVersion
+		v      *SemVer
 		errMsg string
 	}{
 		"one": {
 			raw:    "v1.2.3",
-			v:      &SemanticVersion{major: 1, minor: 2, patch: 3},
+			v:      &SemVer{major: 1, minor: 2, patch: 3},
 			errMsg: "",
 		},
 		"two": {
 			raw:    "v2.0.9999",
-			v:      &SemanticVersion{major: 2, minor: 0, patch: 9999},
+			v:      &SemVer{major: 2, minor: 0, patch: 9999},
 			errMsg: "",
 		},
 		"three": {
@@ -25,9 +25,19 @@ func TestParse(t *testing.T) {
 			v:      nil,
 			errMsg: "\"heyho\" too short to be a version",
 		},
+		"nondigit": {
+			raw:    "v1.x.222",
+			v:      nil,
+			errMsg: "strconv.Atoi: parsing \"x\": invalid syntax",
+		},
+		"bad fields": {
+			raw:    "v1.222",
+			v:      nil,
+			errMsg: "\"v1.222\" doesn't have the form v1.2.3",
+		},
 	}
 	for n, tc := range testCases {
-		v, err := ParseVersion(tc.raw)
+		v, err := Parse(tc.raw)
 		if err == nil {
 			if tc.errMsg != "" {
 				t.Errorf(
@@ -52,35 +62,35 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestGreaterThan(t *testing.T) {
+func TestLessThan(t *testing.T) {
 	var testCases = map[string]struct {
-		v1       *SemanticVersion
-		v2       *SemanticVersion
+		v1       *SemVer
+		v2       *SemVer
 		expected bool
 	}{
 		"one": {
-			v1:       &SemanticVersion{major: 2, minor: 2, patch: 3},
-			v2:       &SemanticVersion{major: 1, minor: 2, patch: 3},
-			expected: true,
+			v1:       &SemVer{major: 2, minor: 2, patch: 3},
+			v2:       &SemVer{major: 1, minor: 2, patch: 3},
+			expected: false,
 		},
 		"two": {
-			v1:       &SemanticVersion{major: 1, minor: 3, patch: 3},
-			v2:       &SemanticVersion{major: 1, minor: 2, patch: 3},
-			expected: true,
+			v1:       &SemVer{major: 1, minor: 3, patch: 3},
+			v2:       &SemVer{major: 1, minor: 2, patch: 3},
+			expected: false,
 		},
 		"three": {
-			v1:       &SemanticVersion{major: 1, minor: 2, patch: 4},
-			v2:       &SemanticVersion{major: 1, minor: 2, patch: 3},
-			expected: true,
+			v1:       &SemVer{major: 1, minor: 2, patch: 4},
+			v2:       &SemVer{major: 1, minor: 2, patch: 3},
+			expected: false,
 		},
 		"eq": {
-			v1:       &SemanticVersion{major: 2, minor: 2, patch: 3},
-			v2:       &SemanticVersion{major: 2, minor: 2, patch: 3},
-			expected: false,
+			v1:       &SemVer{major: 2, minor: 2, patch: 3},
+			v2:       &SemVer{major: 2, minor: 2, patch: 3},
+			expected: true,
 		},
 	}
 	for n, tc := range testCases {
-		actual := tc.v1.GreaterThan(tc.v2)
+		actual := tc.v1.LessThan(tc.v2)
 		if actual != tc.expected {
 			t.Errorf(
 				"%s: expected %v, got %v for %s GreaterThan %s",

@@ -1,6 +1,9 @@
 package utils
 
-import "os"
+import (
+	"log"
+	"os"
+)
 
 func DirExists(name string) bool {
 	info, err := os.Stat(name)
@@ -8,4 +11,16 @@ func DirExists(name string) bool {
 		return false
 	}
 	return info.IsDir()
+}
+
+func SliceToSet(slice []string) map[string]bool {
+	result := make(map[string]bool)
+	for _, x := range slice {
+		if _, ok := result[x]; ok {
+			log.Fatalf("programmer error - repeated exclusion: %s", x)
+		} else {
+			result[x] = true
+		}
+	}
+	return result
 }

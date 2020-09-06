@@ -1,9 +1,10 @@
-package repository_test
+package mod_test
 
 import (
 	"testing"
 
-	"github.com/monopole/gorepomod/internal/repository"
+	"github.com/monopole/gorepomod/internal/ifc"
+	"github.com/monopole/gorepomod/internal/mod"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
@@ -27,8 +28,24 @@ var (
 	}
 )
 
+type mockRepo struct{}
+
+func (mr mockRepo) FindModuleByRelPath(s string) ifc.LaModule {
+	panic("implement me")
+}
+
+func (mr mockRepo) Apply(f ifc.ModFunc) error {
+	panic("implement me")
+}
+
+func (mr mockRepo) ImportPath() string {
+	return "gh.com/hoser"
+}
+
+var _ ifc.LaRepository = mockRepo{}
+
 func TestComputeDepth(t *testing.T) {
-	repo, _ := repository.NewRepo("gh.com/hoser")
+	var repo mockRepo
 	type testData struct {
 		path          string
 		goMod         *modfile.File
@@ -45,7 +62,7 @@ func TestComputeDepth(t *testing.T) {
 		},
 	}
 	for n, tc := range testCases {
-		m := repository.NewModule(repo, tc.goMod)
+		m := mod.NewModule(repo, "hey", tc.goMod)
 		d := m.Depth()
 		if d != tc.expectedDepth {
 			t.Fatalf(

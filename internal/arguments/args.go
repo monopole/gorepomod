@@ -2,25 +2,21 @@ package arguments
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strings"
-
-	"github.com/monopole/gorepomod/internal/repository"
+	"github.com/monopole/gorepomod/internal/semver"
 	"github.com/monopole/gorepomod/internal/utils"
+	"os"
 )
 
 const (
 	doItFlag = "--doIt"
-	dotGit   = ".git"
-	srcPath  = "/src/"
 	cmdPin   = "pin"
 	cmdUnPin = "unpin"
 	cmdTidy  = "tidy"
+	cmdList  = "list"
 )
 
 var (
-	commands = []string{cmdPin, cmdUnPin, cmdTidy}
+	commands = []string{cmdPin, cmdUnPin, cmdTidy, cmdList}
 
 	// TODO: make this a PATH-like flag
 	// e.g.: --excludes ".git:.idea:site:docs"
@@ -42,13 +38,13 @@ const (
 	Tidy Command = iota
 	UnPin
 	Pin
+	List
 )
 
 type Args struct {
 	cmd        Command
 	dependency string
-	version    *repository.SemanticVersion
-	repo       string
+	version    *semver.SemVer
 	doIt       bool
 }
 
@@ -56,7 +52,6 @@ func (a *Args) Report() {
 	fmt.Printf("     cmd: %s\n", a.cmd)
 	fmt.Printf("     dep: %s\n", a.dependency)
 	fmt.Printf(" version: %s\n", a.version)
-	fmt.Printf("    repo: %s\n", a.repo)
 	fmt.Printf("    doIt: %version\n", a.doIt)
 }
 
@@ -64,11 +59,7 @@ func (a *Args) GetCommand() Command {
 	return a.cmd
 }
 
-func (a *Args) RepoName() string {
-	return a.repo
-}
-
-func (a *Args) Version() *repository.SemanticVersion {
+func (a *Args) Version() *semver.SemVer {
 	return a.version
 }
 
@@ -76,16 +67,12 @@ func (a *Args) Dependency() string {
 	return a.dependency
 }
 
-func (a *Args) Exclusions() map[string]bool {
-	result := make(map[string]bool)
-	for _, x := range excSlice {
-		if _, ok := result[x]; ok {
-			log.Fatalf("programmer error - repeated exclusion: %s", x)
-		} else {
-			result[x] = true
-		}
+func (a *Args) Exclusions() (result []string) {
+	// Make sure the list has no repeats.
+	for k, _ := range utils.SliceToSet(excSlice) {
+		result = append(result, k)
 	}
-	return result
+	return
 }
 
 func (a *Args) DoIt() bool {
@@ -111,7 +98,7 @@ func Parse() (result *Args, err error) {
 		if argCount() < 3 {
 			return nil, fmt.Errorf("pin needs a version argument, e.g. v1.2.3")
 		}
-		result.version, err = repository.ParseVersion(os.Args[3])
+		result.version, err = semver.Parse(os.Args[3])
 		if err != nil {
 			return nil, err
 		}
@@ -123,22 +110,11 @@ func Parse() (result *Args, err error) {
 		result.dependency = os.Args[2]
 	case cmdTidy:
 		result.cmd = Tidy
+	case cmdList:
+		result.cmd = List
 	default:
 		return nil, fmt.Errorf("command must be one of %v", commands)
 	}
-	var dir string
-	dir, err = os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	if !utils.DirExists(dotGit) {
-		return nil, fmt.Errorf("your pwd %s is not a git repo root", dir)
-	}
-	index := strings.Index(dir, srcPath)
-	if index < 0 {
-		return nil, fmt.Errorf("cwd path doesn't contain %q", srcPath)
-	}
-	result.repo = dir[index+len(srcPath):]
 	result.doIt = os.Args[argCount()] == doItFlag
 	return
 }

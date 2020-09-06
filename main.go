@@ -7,7 +7,8 @@ import (
 
 	"github.com/monopole/gorepomod/internal/arguments"
 	"github.com/monopole/gorepomod/internal/edit"
-	"github.com/monopole/gorepomod/internal/repository"
+	"github.com/monopole/gorepomod/internal/ifc"
+	"github.com/monopole/gorepomod/internal/repo"
 )
 
 const (
@@ -61,23 +62,29 @@ func main() {
 	if err != nil {
 		usage(err)
 	}
-	repo, err := repository.NewRepoWithExclusion(
-		args.RepoName(), args.Exclusions())
+	repo, err := repo.NewFromCwd()
 	if err != nil {
 		usage(err)
 	}
-	if args.GetCommand() == arguments.Tidy {
-		err = repo.Apply(func(m *repository.Module) error {
-			return edit.New(m, args.DoIt()).Tidy()
-		})
-	} else {
+	err = repo.Load(args.Exclusions())
+	if err != nil {
+		usage(err)
+	}
+	if args.GetCommand() == arguments.List {
+		repo.Report()
+	} else
+		if args.GetCommand() == arguments.Tidy {
+			err = repo.Apply(func(m ifc.LaModule) error {
+				return edit.New(m, args.DoIt()).Tidy()
+			})
+		} else {
 		targetDep := repo.FindModuleByRelPath(args.Dependency())
 		if targetDep == nil {
 			usage(fmt.Errorf(
 				"cannot find dependency target module %q in repo %s",
-				args.Dependency(), args.RepoName()))
+				args.Dependency(), repo.ImportPath()))
 		}
-		err = repo.Apply(func(m *repository.Module) error {
+		err = repo.Apply(func(m ifc.LaModule) error {
 			editor := edit.New(m, args.DoIt())
 			if args.GetCommand() == arguments.Tidy {
 				return editor.Tidy()
