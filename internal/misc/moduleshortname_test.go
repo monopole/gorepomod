@@ -1,9 +1,9 @@
-package ifc_test
+package misc_test
 
 import (
 	"testing"
 
-	"github.com/monopole/gorepomod/internal/ifc"
+	"github.com/monopole/gorepomod/internal/misc"
 )
 
 func TestDepth(t *testing.T) {
@@ -25,7 +25,7 @@ func TestDepth(t *testing.T) {
 		},
 	}
 	for n, tc := range testCases {
-		m := ifc.ModuleShortName(tc.path)
+		m := misc.ModuleShortName(tc.path)
 		d := m.Depth()
 		if d != tc.expectedDepth {
 			t.Fatalf(
