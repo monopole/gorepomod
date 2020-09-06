@@ -13,28 +13,31 @@ import (
 )
 
 type protoModule struct {
-	path string
-	mf   *modfile.File
+	pathToGoMod string
+	mf          *modfile.File
 }
 
 func (pm *protoModule) FullPath() string {
 	return pm.mf.Module.Mod.Path
 }
 
-func (pm *protoModule) RawPath() string {
-	return pm.path
+func (pm *protoModule) PathToGoMod() string {
+	return pm.pathToGoMod
 }
 
 // Represents the trailing version label in a module name.
 // See https://blog.golang.org/v2-go-modules
 var trailingVersionPattern = regexp.MustCompile("/v\\d+$")
 
-// InRepoPath is in repo path to the go.mod file.
-// It's usually a short path, e.g. "" (empty), "kyaml", "cmd/config".
-// The same string used to tag the repo at a particular module version.
-func (pm *protoModule) InRepoPath(repoImportPath string) string {
+// ShortName is the in-repo pathToGoMod to the go.mod file, the unique
+// in-repo name of the module.
+// E.g. "" (empty), "kyaml", "cmd/config", "plugin/example/whatever".
+// It's the name used to tag the repo at a particular module version.
+func (pm *protoModule) ShortName(
+	repoImportPath string) ifc.ModuleShortName {
 	p := pm.FullPath()[len(repoImportPath)+1:]
-	return trailingVersionPattern.ReplaceAllString(p, "")
+	stripped :=trailingVersionPattern.ReplaceAllString(p, "")
+	return ifc.ModuleShortName(stripped)
 }
 
 func loadProtoModules(
@@ -65,7 +68,7 @@ func loadProtoModule(path string) (*protoModule, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &protoModule{path: path, mf: f}, nil
+	return &protoModule{pathToGoMod: path, mf: f}, nil
 }
 
 func getPathsToModules(exclusions []string) (result []string, err error) {
@@ -74,7 +77,7 @@ func getPathsToModules(exclusions []string) (result []string, err error) {
 		dotDir,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return fmt.Errorf("trouble at path %q: %v\n", path, err)
+				return fmt.Errorf("trouble at pathToGoMod %q: %v\n", path, err)
 			}
 			if info.IsDir() {
 				if _, ok := exclusionMap[info.Name()]; ok {

@@ -27,7 +27,7 @@ func (e *Editor) run(args ...string) error {
 	c := exec.Command(
 		"go",
 		append([]string{"mod"}, args...)...)
-	c.Dir = e.module.InRepoPath()
+	c.Dir = string(e.module.ShortName())
 	if e.doIt {
 		out, err := c.CombinedOutput()
 		if err != nil {
@@ -52,7 +52,7 @@ func (e *Editor) Tidy() error {
 }
 
 func (e *Editor) Pin(
-	target ifc.LaModule, oldV, newV *semver.SemVer) error {
+	target ifc.LaModule, oldV, newV semver.SemVer) error {
 	return e.run(
 		"edit",
 		"-dropreplace="+target.SrcRelativePath()+"@"+oldV.String(),
@@ -61,14 +61,14 @@ func (e *Editor) Pin(
 }
 
 func (e *Editor) UnPin(
-	depth int, target ifc.LaModule, oldV *semver.SemVer) error {
+	depth int, target ifc.LaModule, oldV semver.SemVer) error {
 	var r strings.Builder
 	r.WriteString(target.SrcRelativePath())
 	r.WriteString("@")
 	r.WriteString(oldV.String())
 	r.WriteString("=")
 	r.WriteString(upstairs(depth))
-	r.WriteString(target.InRepoPath())
+	r.WriteString(string(target.ShortName()))
 	return e.run(
 		"edit",
 		"-replace="+r.String(),

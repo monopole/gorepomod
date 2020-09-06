@@ -1,6 +1,8 @@
 package ifc
 
-import "github.com/monopole/gorepomod/internal/semver"
+import (
+	"github.com/monopole/gorepomod/internal/semver"
+)
 
 type ModFunc func(LaModule) error
 
@@ -10,15 +12,13 @@ type LaRepository interface {
 	ImportPath() string
 	AbsPath() string
 	Apply(f ModFunc) error
-	FindModuleByRelPath(string) LaModule
+	FindModule(ModuleShortName) LaModule
 }
 
 type LaModule interface {
-	InRepoPath() string
+	ShortName() ModuleShortName
 	SrcRelativePath() string
 	AbsPath() string
-	Depth() int
-	Report()
-	Version() *semver.SemVer
-	DependsOn(LaModule) (bool, *semver.SemVer)
+	Version() semver.SemVer
+	DependsOn(LaModule) (bool, semver.SemVer)
 }

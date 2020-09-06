@@ -19,15 +19,14 @@ const (
 	srcPath          = "/src/"
 	dotDir           = "."
 	pathSep          = "/"
-	rootedModulePath = "{top}"
 )
 
 type GitRepo struct {
-	// srcRoot is the absolute path to the local Go src srcRoot,
+	// srcRoot is the absolute pathToGoMod to the local Go src srcRoot,
 	// the directory containing git repository clones.
 	srcRoot string
 
-	// importPath is the import path of repository,
+	// importPath is the import pathToGoMod of repository,
 	// e.g. github.com/kubernetes-sigs/kustomize
 	// The directory {srcRoot}/{importPath} should contain a dotGit directory.
 	// This directory might be a Go module, or contain directories
@@ -55,7 +54,7 @@ func NewFromCwd() (*GitRepo, error) {
 	}
 	index := strings.Index(path, srcPath)
 	if index < 0 {
-		return nil, fmt.Errorf("path %q doesn't contain %q", srcPath)
+		return nil, fmt.Errorf("pathToGoMod %q doesn't contain %q", path, srcPath)
 	}
 	return &GitRepo{
 		srcRoot:    path[:index+len(srcPath)-1],
@@ -83,27 +82,27 @@ func (r *GitRepo) Load(exclusions []string) error {
 				pm.FullPath(), r.ImportPath())
 		}
 
-		inRepoPath := pm.InRepoPath(r.importPath)
+		inRepoPath := pm.ShortName(r.importPath)
 
 		// Sanity check 2
-		if !strings.HasSuffix(pm.RawPath(), inRepoPath) {
+		if !strings.HasSuffix(pm.PathToGoMod(), string(inRepoPath)) {
 			return fmt.Errorf(
-				"in file %q, the module name %q doesn't match the file's path",
-				filepath.Join(pm.RawPath(), ifc.GoModFile), inRepoPath)
+				"in file %q, the module name %q doesn't match the file's pathToGoMod",
+				filepath.Join(pm.PathToGoMod(), ifc.GoModFile), inRepoPath)
 		}
 
 		// Sanity check 3
-		p1 := filepath.Join(r.ImportPath(), inRepoPath)
+		p1 := filepath.Join(r.ImportPath(), string(inRepoPath))
 		p2 := pm.mf.Module.Mod.Path
 		if !strings.HasPrefix(p2, p1) {
-			return fmt.Errorf("path invariant broken; %q != %q", p1, p2)
+			return fmt.Errorf("pathToGoMod invariant broken; %q != %q", p1, p2)
 		}
 
 		// Find the latest version tag
-		v := func () *semver.SemVer {
+		v := func () semver.SemVer {
 			versions := pathToVersionMap[inRepoPath]
 			if versions == nil {
-				return nil
+				return semver.Zero()
 			}
 			return versions[0]
 		}()
@@ -123,16 +122,10 @@ func (r *GitRepo) ImportPath() string {
 	return r.importPath
 }
 
-func (r *GitRepo) Report() {
-	fmt.Println(r.importPath)
+func (r *GitRepo) FindModule(
+	target ifc.ModuleShortName) ifc.LaModule {
 	for _, m := range r.modules {
-		fmt.Printf("%15s  %s\n", m.Version(), m.InRepoPath())
-	}
-}
-
-func (r *GitRepo) FindModuleByRelPath(target string) ifc.LaModule {
-	for _, m := range r.modules {
-		if m.InRepoPath() == target {
+		if m.ShortName() == target {
 			return m
 		}
 	}
@@ -164,13 +157,13 @@ func (r *GitRepo) gitRun(args ...string) (string, error) {
 	}
 }
 
-func (r *GitRepo) loadTags() (result map[string]semver.Versions) {
+func (r *GitRepo) loadTags() (result map[ifc.ModuleShortName]semver.Versions) {
 	r.doIt = true
 	out, err := r.gitRun("tag", "-l")
 	if err != nil {
 		panic(err)
 	}
-	result = make(map[string]semver.Versions)
+	result = make(map[ifc.ModuleShortName]semver.Versions)
 	lines := strings.Split(out, "\n")
 	for _, l := range lines {
 		fields := strings.Split(l, pathSep)
@@ -179,9 +172,10 @@ func (r *GitRepo) loadTags() (result map[string]semver.Versions) {
 			// Silently ignore versions we don't understand.
 			continue
 		}
-		p := rootedModulePath
+		p := ifc.TopModule
 		if len(fields) > 1 {
-			p = strings.Join(fields[:len(fields)-1], pathSep)
+			p = ifc.ModuleShortName(
+				strings.Join(fields[:len(fields)-1], pathSep))
 		}
 		result[p] = append(result[p], v)
 	}

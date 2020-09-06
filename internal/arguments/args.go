@@ -2,6 +2,7 @@ package arguments
 
 import (
 	"fmt"
+	"github.com/monopole/gorepomod/internal/ifc"
 	"github.com/monopole/gorepomod/internal/semver"
 	"github.com/monopole/gorepomod/internal/utils"
 	"os"
@@ -43,27 +44,20 @@ const (
 
 type Args struct {
 	cmd        Command
-	dependency string
-	version    *semver.SemVer
+	dependency ifc.ModuleShortName
+	version    semver.SemVer
 	doIt       bool
-}
-
-func (a *Args) Report() {
-	fmt.Printf("     cmd: %s\n", a.cmd)
-	fmt.Printf("     dep: %s\n", a.dependency)
-	fmt.Printf(" version: %s\n", a.version)
-	fmt.Printf("    doIt: %version\n", a.doIt)
 }
 
 func (a *Args) GetCommand() Command {
 	return a.cmd
 }
 
-func (a *Args) Version() *semver.SemVer {
+func (a *Args) Version() semver.SemVer {
 	return a.version
 }
 
-func (a *Args) Dependency() string {
+func (a *Args) Dependency() ifc.ModuleShortName {
 	return a.dependency
 }
 
@@ -94,7 +88,7 @@ func Parse() (result *Args, err error) {
 		if argCount() < 2 {
 			return nil, fmt.Errorf("pin needs a dependency to pin")
 		}
-		result.dependency = os.Args[2]
+		result.dependency = ifc.ModuleShortName(os.Args[2])
 		if argCount() < 3 {
 			return nil, fmt.Errorf("pin needs a version argument, e.g. v1.2.3")
 		}
@@ -107,7 +101,7 @@ func Parse() (result *Args, err error) {
 		if argCount() < 2 {
 			return nil, fmt.Errorf("unpin needs a dependency to unpin")
 		}
-		result.dependency = os.Args[2]
+		result.dependency = ifc.ModuleShortName(os.Args[2])
 	case cmdTidy:
 		result.cmd = Tidy
 	case cmdList:

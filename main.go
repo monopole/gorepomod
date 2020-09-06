@@ -70,15 +70,20 @@ func main() {
 	if err != nil {
 		usage(err)
 	}
-	if args.GetCommand() == arguments.List {
-		repo.Report()
-	} else
-		if args.GetCommand() == arguments.Tidy {
-			err = repo.Apply(func(m ifc.LaModule) error {
-				return edit.New(m, args.DoIt()).Tidy()
-			})
-		} else {
-		targetDep := repo.FindModuleByRelPath(args.Dependency())
+	switch args.GetCommand() {
+	case arguments.List:
+		err = repo.Apply(func(m ifc.LaModule) error {
+			fmt.Printf("%15s  %s\n", m.Version(), m.ShortName())
+			return nil
+		})
+	case arguments.Tidy:
+		err = repo.Apply(func(m ifc.LaModule) error {
+			return edit.New(m, args.DoIt()).Tidy()
+		})
+	case arguments.Pin:
+		fallthrough
+	case arguments.UnPin:
+		targetDep := repo.FindModule(args.Dependency())
 		if targetDep == nil {
 			usage(fmt.Errorf(
 				"cannot find dependency target module %q in repo %s",
@@ -86,16 +91,11 @@ func main() {
 		}
 		err = repo.Apply(func(m ifc.LaModule) error {
 			editor := edit.New(m, args.DoIt())
-			if args.GetCommand() == arguments.Tidy {
-				return editor.Tidy()
-			}
 			if yes, oldVersion := m.DependsOn(targetDep); yes {
-				switch args.GetCommand() {
-				case arguments.Pin:
+				if args.GetCommand() == arguments.Pin {
 					return editor.Pin(targetDep, oldVersion, args.Version())
-				case arguments.UnPin:
-					return editor.UnPin(m.Depth(), targetDep, oldVersion)
 				}
+				return editor.UnPin(m.ShortName().Depth(), targetDep, oldVersion)
 			}
 			return nil
 		})
