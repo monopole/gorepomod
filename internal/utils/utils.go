@@ -17,7 +17,7 @@ func SliceToSet(slice []string) map[string]bool {
 	result := make(map[string]bool)
 	for _, x := range slice {
 		if _, ok := result[x]; ok {
-			log.Fatalf("programmer error - repeated exclusion: %s", x)
+			log.Fatalf("programmer error - repeated value: %s", x)
 		} else {
 			result[x] = true
 		}

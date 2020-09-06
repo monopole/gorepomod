@@ -3,57 +3,62 @@ package mod
 import (
 	"path/filepath"
 
-	"github.com/monopole/gorepomod/internal/ifc"
+	"github.com/monopole/gorepomod/internal/misc"
 	"github.com/monopole/gorepomod/internal/semver"
 	"golang.org/x/mod/modfile"
 )
 
 // Module is an immutable representation of a Go module.
 type Module struct {
-	repo      ifc.LaRepository
-	shortName ifc.ModuleShortName
+	repo      misc.LaRepository
+	shortName misc.ModuleShortName
 	mf        *modfile.File
-	v         semver.SemVer
+	vLocal    semver.SemVer
+	vRemote    semver.SemVer
 }
 
-func NewModule(
-	repo ifc.LaRepository,
-	shortName ifc.ModuleShortName,
+func New(
+	repo misc.LaRepository,
+	shortName misc.ModuleShortName,
 	mf *modfile.File,
-	v semver.SemVer) *Module {
+	vl semver.SemVer,
+	vr semver.SemVer) *Module {
 	return &Module{
 		repo:      repo,
 		shortName: shortName,
 		mf:        mf,
-		v:         v,
+		vLocal:    vl,
+		vRemote:    vr,
 	}
 }
 
-func (m *Module) GitRepo() ifc.LaRepository {
+func (m *Module) GitRepo() misc.LaRepository {
 	return m.repo
 }
 
-func (m *Module) Version() semver.SemVer {
-	return m.v
+func (m *Module) VersionLocal() semver.SemVer {
+	return m.vLocal
 }
 
-// AbsPath is the absolute path to the module's go.mod file.
+func (m *Module) VersionRemote() semver.SemVer {
+	return m.vRemote
+}
+
+func (m *Module) ShortName() misc.ModuleShortName {
+	return m.shortName
+}
+
+func (m *Module) ImportPath() string {
+	return filepath.Join(m.repo.RepoPath(), string(m.ShortName()))
+}
+
 func (m *Module) AbsPath() string {
 	return filepath.Join(m.repo.AbsPath(), string(m.ShortName()))
 }
 
-// SrcRelativePath is the relative path below the Go src root.
-func (m *Module) SrcRelativePath() string {
-	return filepath.Join(m.repo.ImportPath(), string(m.ShortName()))
-}
-
-func (m *Module) ShortName() ifc.ModuleShortName {
-	return m.shortName
-}
-
-func (m *Module) DependsOn(target ifc.LaModule) (bool, semver.SemVer) {
+func (m *Module) DependsOn(target misc.LaModule) (bool, semver.SemVer) {
 	for _, r := range m.mf.Require {
-		if r.Mod.Path == target.SrcRelativePath() {
+		if r.Mod.Path == target.ImportPath() {
 			v, err := semver.Parse(r.Mod.Version)
 			if err != nil {
 				panic(err)

@@ -2,111 +2,81 @@ package main
 
 import (
 	"fmt"
-	"github.com/monopole/gorepomod/internal/arguments"
-	"github.com/monopole/gorepomod/internal/edit"
-	"github.com/monopole/gorepomod/internal/ifc"
-	"github.com/monopole/gorepomod/internal/repo"
-	"log"
 	"os"
-	"strconv"
+
+	"github.com/monopole/gorepomod/internal/arguments"
+	"github.com/monopole/gorepomod/internal/misc"
+	"github.com/monopole/gorepomod/internal/repo"
 )
 
-const (
-	usageMsg = `# gorepomod
+//go:generate go run internal/gen/main.go
 
-A tool for managing Go modules in a git repository
-with more than one Go module, where there are
-dependencies between the modules.
-
-This is a fancy version of
-
-  find ./ -name "go.mod" | xargs go mod {some operation}
-
-Run it from a local git repository root.
-
-It walks the repository's tree looking for Go modules
-(i.e. go.mod files), loads and examines them all,
-and does the following on each module _m_:
-
- - list
-
-   Lists the modules and inter-repo dependencies.
-
- - tidy
-
-   Tidy _m_'s go.mod file.
-
- - unpin {module}
-
-   If _m_ depends on a _{repository}/{module}_,
-   then _m_'s dependency on it will be replaced by
-   a relative path to the in-repo module.
-
- - pin {module} {version}
-
-   The opposite of 'unpin'.  Replacements are removed,
-   and _m_'s dependency is pinned to a specific, previously
-   tagged and released version of _{module}_.
-   _{version}_ should be in semver form, e.g. v1.2.3.
-
-`
-)
-
-func usage(err error) {
-	fmt.Print(usageMsg)
+func loadRepoManager(args *arguments.Args) (*repo.Manager, error) {
+	path, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("argument error: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
-	os.Exit(0)
+	dg, err := repo.NewDotGitDataFromPath(path)
+	if err != nil {
+		return nil, err
+	}
+	pr, err := dg.NewRepoFactory(args.Exclusions())
+	if err != nil {
+		return nil, err
+	}
+	return pr.NewRepoManager(), nil
+}
+
+func actualMain() error {
+	args, err := arguments.Parse()
+	if err != nil {
+		return err
+	}
+
+	mgr, err := loadRepoManager(args)
+	if err != nil {
+		return err
+	}
+
+	var targetModule misc.LaModule = nil
+	if args.ModuleName() != misc.ModuleUnknown {
+		targetModule = mgr.FindModule(args.ModuleName())
+		if targetModule == nil {
+			return fmt.Errorf(
+				"cannot find module %q in repo %s",
+				args.ModuleName(), mgr.RepoPath())
+		}
+	}
+
+	switch args.GetCommand() {
+	case arguments.List:
+		return mgr.List()
+	case arguments.Tidy:
+		return mgr.Tidy(args.DoIt())
+	case arguments.Pin:
+		v := args.Version()
+		if v.IsZero() {
+			v = targetModule.VersionLocal()
+		}
+		return mgr.Pin(args.DoIt(), targetModule, v)
+	case arguments.UnPin:
+		return mgr.UnPin(args.DoIt(), targetModule)
+	case arguments.Release:
+		return mgr.Release(targetModule, args.Bump(), args.DoIt())
+	case arguments.UnRelease:
+		return mgr.UnRelease(targetModule, args.DoIt())
+	default:
+		return fmt.Errorf("cannot handle cmd %v", args.GetCommand())
+	}
 }
 
 func main() {
-	args, err := arguments.Parse()
-	if err != nil {
-		usage(err)
+	if len(os.Args) < 2 {
+		fmt.Print(usageMsg)
+		return
 	}
-	gr, err := repo.NewFromCwd()
-	if err != nil {
-		usage(err)
-	}
-	err = gr.Load(args.Exclusions())
-	if err != nil {
-		usage(err)
-	}
-	switch args.GetCommand() {
-	case arguments.List:
-		err = gr.Apply(func(m ifc.LaModule) error {
-			fmt.Printf(
-				"%10s  %-" + strconv.Itoa(gr.LenLongestName()+2) + "s%v\n",
-				m.Version(), m.ShortName(),  gr.InternalDeps(m))
-			return nil
-		})
-	case arguments.Tidy:
-		err = gr.Apply(func(m ifc.LaModule) error {
-			return edit.New(m, args.DoIt()).Tidy()
-		})
-	case arguments.Pin:
-		fallthrough
-	case arguments.UnPin:
-		targetDep := gr.FindModule(args.Dependency())
-		if targetDep == nil {
-			usage(fmt.Errorf(
-				"cannot find dependency target module %q in repo %s",
-				args.Dependency(), gr.ImportPath()))
-		}
-		err = gr.Apply(func(m ifc.LaModule) error {
-			editor := edit.New(m, args.DoIt())
-			if yes, oldVersion := m.DependsOn(targetDep); yes {
-				if args.GetCommand() == arguments.Pin {
-					return editor.Pin(targetDep, oldVersion, args.Version())
-				}
-				return editor.UnPin(m.ShortName().Depth(), targetDep, oldVersion)
-			}
-			return nil
-		})
-	}
-	if err != nil {
-		log.Fatal(err)
+	if err := actualMain(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }

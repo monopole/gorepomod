@@ -5,18 +5,18 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/monopole/gorepomod/internal/ifc"
+	"github.com/monopole/gorepomod/internal/misc"
 	"github.com/monopole/gorepomod/internal/semver"
 )
 
 // Editor runs `go mod` commands on an instance of Module.
 // If doIt is false, the command is printed, but not run.
 type Editor struct {
-	module ifc.LaModule
+	module misc.LaModule
 	doIt   bool
 }
 
-func New(m ifc.LaModule, doIt bool) *Editor {
+func New(m misc.LaModule, doIt bool) *Editor {
 	return &Editor{
 		doIt:   doIt,
 		module: m,
@@ -51,23 +51,21 @@ func (e *Editor) Tidy() error {
 	return e.run("tidy")
 }
 
-func (e *Editor) Pin(
-	target ifc.LaModule, oldV, newV semver.SemVer) error {
+func (e *Editor) Pin(target misc.LaModule, oldV, newV semver.SemVer) error {
 	return e.run(
 		"edit",
-		"-dropreplace="+target.SrcRelativePath()+"@"+oldV.String(),
-		"-require="+target.SrcRelativePath()+"@"+newV.String(),
+		"-dropreplace="+target.ImportPath()+"@"+oldV.String(),
+		"-require="+target.ImportPath()+"@"+newV.String(),
 	)
 }
 
-func (e *Editor) UnPin(
-	depth int, target ifc.LaModule, oldV semver.SemVer) error {
+func (e *Editor) UnPin(target misc.LaModule, oldV semver.SemVer) error {
 	var r strings.Builder
-	r.WriteString(target.SrcRelativePath())
+	r.WriteString(target.ImportPath())
 	r.WriteString("@")
 	r.WriteString(oldV.String())
 	r.WriteString("=")
-	r.WriteString(upstairs(depth))
+	r.WriteString(upstairs(e.module.ShortName().Depth()))
 	r.WriteString(string(target.ShortName()))
 	return e.run(
 		"edit",

@@ -57,23 +57,30 @@ func Parse(raw string) (SemVer, error) {
 	return New(n[0], n[1], n[2]), nil
 }
 
-func (v SemVer) BumpMajor() SemVer {
-	return New(v.major+1, 0, 0)
+func (v SemVer) Bump(b SvBump) SemVer {
+	switch b {
+	case Major:
+		return New(v.major+1, 0, 0)
+	case Minor:
+		return New(v.major, v.minor+1, 0)
+	default:
+		return New(v.major, v.minor, v.patch+1)
+	}
 }
 
-func (v SemVer) BumpMinor() SemVer {
-	return New(v.major, v.minor+1, 0)
-}
-
-func (v SemVer) BumpPatch() SemVer {
-	return New(v.major, v.minor, v.patch+1)
+func (v SemVer) BranchLabel() string {
+	return fmt.Sprintf("v%d.%d", v.major, v.minor)
 }
 
 func (v SemVer) String() string {
-	if v == zero {
+	return fmt.Sprintf("v%d.%d.%d", v.major, v.minor, v.patch)
+}
+
+func (v SemVer) Pretty() string {
+	if v.IsZero() {
 		return ""
 	}
-	return fmt.Sprintf("v%d.%d.%d", v.major, v.minor, v.patch)
+	return v.String()
 }
 
 func (v SemVer) Equals(o SemVer) bool {
@@ -84,4 +91,8 @@ func (v SemVer) LessThan(o SemVer) bool {
 	return v.major < o.major ||
 		(v.major == o.major && v.minor < o.minor) ||
 		(v.major == o.major && v.minor == o.minor && v.patch < o.patch)
+}
+
+func (v SemVer) IsZero() bool {
+	return v.Equals(zero)
 }

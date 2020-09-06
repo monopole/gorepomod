@@ -7,9 +7,13 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/monopole/gorepomod/internal/ifc"
+	"github.com/monopole/gorepomod/internal/misc"
 	"github.com/monopole/gorepomod/internal/utils"
 	"golang.org/x/mod/modfile"
+)
+
+const (
+	dotDir = "."
 )
 
 type protoModule struct {
@@ -30,16 +34,20 @@ func (pm *protoModule) PathToGoMod() string {
 var trailingVersionPattern = regexp.MustCompile("/v\\d+$")
 
 func (pm *protoModule) ShortName(
-	repoImportPath string) ifc.ModuleShortName {
-	p := pm.FullPath()[len(repoImportPath)+1:]
-	stripped :=trailingVersionPattern.ReplaceAllString(p, "")
-	return ifc.ModuleShortName(stripped)
+	repoImportPath string) misc.ModuleShortName {
+	fp := pm.FullPath()
+	if fp == repoImportPath {
+		return misc.ModuleAtTop
+	}
+	p := fp[len(repoImportPath)+1:]
+	stripped := trailingVersionPattern.ReplaceAllString(p, "")
+	return misc.ModuleShortName(stripped)
 }
 
 func loadProtoModules(
-	exclusions []string) (result []*protoModule, err error) {
+	repoRoot string, exclusions []string) (result []*protoModule, err error) {
 	var paths []string
-	paths, err = getPathsToModules(exclusions)
+	paths, err = getPathsToModules(repoRoot, exclusions)
 	if err != nil {
 		return
 	}
@@ -55,7 +63,7 @@ func loadProtoModules(
 }
 
 func loadProtoModule(path string) (*protoModule, error) {
-	mPath := filepath.Join(path, ifc.GoModFile)
+	mPath := filepath.Join(path, GoModFile)
 	content, err := ioutil.ReadFile(mPath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading %q: %v\n", mPath, err)
@@ -67,10 +75,11 @@ func loadProtoModule(path string) (*protoModule, error) {
 	return &protoModule{pathToGoMod: path, mf: f}, nil
 }
 
-func getPathsToModules(exclusions []string) (result []string, err error) {
+func getPathsToModules(
+	repoRoot string, exclusions []string) (result []string, err error) {
 	exclusionMap := utils.SliceToSet(exclusions)
 	err = filepath.Walk(
-		dotDir,
+		repoRoot,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return fmt.Errorf("trouble at pathToGoMod %q: %v\n", path, err)
@@ -81,9 +90,8 @@ func getPathsToModules(exclusions []string) (result []string, err error) {
 				}
 				return nil
 			}
-			if info.Name() == ifc.GoModFile {
-				result = append(
-					result, path[:len(path)-len(ifc.GoModFile)-1])
+			if info.Name() == GoModFile {
+				result = append(result, path[:len(path)-len(GoModFile)-1])
 				return filepath.SkipDir
 			}
 			return nil

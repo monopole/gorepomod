@@ -3,18 +3,18 @@ package repo
 import (
 	"testing"
 
-	"github.com/monopole/gorepomod/internal/ifc"
+	"github.com/monopole/gorepomod/internal/misc"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
 
 func TestShortName(t *testing.T) {
 	var testCases = map[string]struct {
-		name    ifc.ModuleShortName
+		name    misc.ModuleShortName
 		modFile *modfile.File
 	}{
 		"one": {
-			name:    ifc.ModuleShortName("garage"),
+			name: misc.ModuleShortName("garage"),
 			modFile: &modfile.File{
 				Module: &modfile.Module{
 					Mod: module.Version{
@@ -25,7 +25,7 @@ func TestShortName(t *testing.T) {
 			},
 		},
 		"three": {
-			name:    ifc.ModuleShortName("fruit/yellow/banana"),
+			name: misc.ModuleShortName("fruit/yellow/banana"),
 			modFile: &modfile.File{
 				Module: &modfile.Module{
 					Mod: module.Version{
