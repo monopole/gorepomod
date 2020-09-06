@@ -13,7 +13,6 @@ type Module struct {
 	repo      ifc.LaRepository
 	shortName ifc.ModuleShortName
 	mf        *modfile.File
-	depth     int
 	v         semver.SemVer
 }
 

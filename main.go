@@ -2,48 +2,52 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
-
 	"github.com/monopole/gorepomod/internal/arguments"
 	"github.com/monopole/gorepomod/internal/edit"
 	"github.com/monopole/gorepomod/internal/ifc"
 	"github.com/monopole/gorepomod/internal/repo"
+	"log"
+	"os"
+	"strconv"
 )
 
 const (
-	usageMsg = `usage:
+	usageMsg = `# gorepomod
 
-  gorepomod unpin {dependency}
-  gorepomod pin {dependency} {version}
-  gorepomod tidy
+A tool for managing Go modules in a git repository
+with more than one Go module, where there are
+dependencies between the modules.
 
-e.g.
+This is a fancy version of
 
-  gorepomod unpin kyaml --doIt
-  gorepomod pin kyaml v0.7.0 --doIt
+  find ./ -name "go.mod" | xargs go mod {some operation}
 
-This program must be run from a local git repository root.
-The program walks the repository's tree looking for Go
-modules (i.e. looking for 'go.mod' files), and performs
-one of the following operations on each module {m}:
+Run it from a local git repository root.
 
-  tidy
+It walks the repository's tree looking for Go modules
+(i.e. go.mod files), loads and examines them all,
+and does the following on each module _m_:
 
-    Tidy {m}'s go.mod file.
+ - list
 
-  unpin
+   Lists the modules and inter-repo dependencies.
 
-    If {m} depends on a {repository}/{dependency},
-    then {m}'s dependency on it will be replaced by
-    a relative path to the in-repo module.
+ - tidy
 
-  pin {version}
+   Tidy _m_'s go.mod file.
 
-    The opposite of 'unpin'.  Replacements are removed,
-    and {m}'s dependency is pinned to a specific,
-    previously tagged and released version of {dependency}.
-    {version} should be in semver form, e.g. v1.2.3.
+ - unpin {module}
+
+   If _m_ depends on a _{repository}/{module}_,
+   then _m_'s dependency on it will be replaced by
+   a relative path to the in-repo module.
+
+ - pin {module} {version}
+
+   The opposite of 'unpin'.  Replacements are removed,
+   and _m_'s dependency is pinned to a specific, previously
+   tagged and released version of _{module}_.
+   _{version}_ should be in semver form, e.g. v1.2.3.
 
 `
 )
@@ -62,34 +66,36 @@ func main() {
 	if err != nil {
 		usage(err)
 	}
-	repo, err := repo.NewFromCwd()
+	gr, err := repo.NewFromCwd()
 	if err != nil {
 		usage(err)
 	}
-	err = repo.Load(args.Exclusions())
+	err = gr.Load(args.Exclusions())
 	if err != nil {
 		usage(err)
 	}
 	switch args.GetCommand() {
 	case arguments.List:
-		err = repo.Apply(func(m ifc.LaModule) error {
-			fmt.Printf("%15s  %s\n", m.Version(), m.ShortName())
+		err = gr.Apply(func(m ifc.LaModule) error {
+			fmt.Printf(
+				"%10s  %-" + strconv.Itoa(gr.LenLongestName()+2) + "s%v\n",
+				m.Version(), m.ShortName(),  gr.InternalDeps(m))
 			return nil
 		})
 	case arguments.Tidy:
-		err = repo.Apply(func(m ifc.LaModule) error {
+		err = gr.Apply(func(m ifc.LaModule) error {
 			return edit.New(m, args.DoIt()).Tidy()
 		})
 	case arguments.Pin:
 		fallthrough
 	case arguments.UnPin:
-		targetDep := repo.FindModule(args.Dependency())
+		targetDep := gr.FindModule(args.Dependency())
 		if targetDep == nil {
 			usage(fmt.Errorf(
 				"cannot find dependency target module %q in repo %s",
-				args.Dependency(), repo.ImportPath()))
+				args.Dependency(), gr.ImportPath()))
 		}
-		err = repo.Apply(func(m ifc.LaModule) error {
+		err = gr.Apply(func(m ifc.LaModule) error {
 			editor := edit.New(m, args.DoIt())
 			if yes, oldVersion := m.DependsOn(targetDep); yes {
 				if args.GetCommand() == arguments.Pin {

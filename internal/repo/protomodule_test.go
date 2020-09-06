@@ -8,8 +8,6 @@ import (
 	"golang.org/x/mod/module"
 )
 
-const irrelevantName = ifc.ModuleShortName("whatever")
-
 func TestShortName(t *testing.T) {
 	var testCases = map[string]struct {
 		name    ifc.ModuleShortName
@@ -20,7 +18,7 @@ func TestShortName(t *testing.T) {
 			modFile: &modfile.File{
 				Module: &modfile.Module{
 					Mod: module.Version{
-						Path:    "gh.com/hoser/garage",
+						Path:    "gh.com/micheal/garage",
 						Version: "v2.3.4",
 					},
 				},
@@ -31,7 +29,7 @@ func TestShortName(t *testing.T) {
 			modFile: &modfile.File{
 				Module: &modfile.Module{
 					Mod: module.Version{
-						Path:    "gh.com/hoser/fruit/yellow/banana",
+						Path:    "gh.com/micheal/fruit/yellow/banana",
 						Version: "v2.3.4",
 					},
 				},
@@ -40,7 +38,7 @@ func TestShortName(t *testing.T) {
 	}
 	for n, tc := range testCases {
 		m := protoModule{pathToGoMod: "irrelevant", mf: tc.modFile}
-		actual := m.ShortName("gh.com/hoser")
+		actual := m.ShortName("gh.com/micheal")
 		if actual != tc.name {
 			t.Errorf(
 				"%s: expected %s, got %s", n, tc.name, actual)

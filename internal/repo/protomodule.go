@@ -29,10 +29,6 @@ func (pm *protoModule) PathToGoMod() string {
 // See https://blog.golang.org/v2-go-modules
 var trailingVersionPattern = regexp.MustCompile("/v\\d+$")
 
-// ShortName is the in-repo pathToGoMod to the go.mod file, the unique
-// in-repo name of the module.
-// E.g. "" (empty), "kyaml", "cmd/config", "plugin/example/whatever".
-// It's the name used to tag the repo at a particular module version.
 func (pm *protoModule) ShortName(
 	repoImportPath string) ifc.ModuleShortName {
 	p := pm.FullPath()[len(repoImportPath)+1:]

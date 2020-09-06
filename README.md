@@ -1,44 +1,38 @@
 # gorepomod
 
-A tool to do bulk, interrelated edits to `go.mod`
-files in one git repository.
+A tool for managing Go modules in a git repository
+with more than one Go module, where there are
+dependencies between the modules.
 
-Only useful if you have more than one _Go_ module
-in a repository, and they depend on each other.
-
-Usage:
+This is a fancy version of
 
 ```
-gorepomod unpin {dependency}
-gorepomod pin {dependency} {version}
-gorepomod tidy
+find ./ -name "go.mod" | xargs go mod {some operation}
 ```
 
-e.g.
+Run it from a local git repository root.
 
-```
-gorepomod unpin kyaml --doIt
-gorepomod pin kyaml v0.7.0 --doIt
-```
+It walks the repository's tree looking for Go modules
+(i.e. `go.mod` files), loads and examines them all,
+and does the following on each module _m_:
 
-This program must be run from a local git repository root.
-The program walks the repository's tree looking for Go
-modules (i.e. `go.mod` files), and performs one of the
-following operations on each module _m_:
-
+ - list
+ 
+   Lists the modules and inter-repo dependencies.
+   
  - tidy
 
    Tidy _m_'s go.mod file.
 
- - unpin
+ - unpin {module}
 
-   If _m_ depends on a _{repository}/{dependency}_,
+   If _m_ depends on a _{repository}/{module}_,
    then _m_'s dependency on it will be replaced by
    a relative path to the in-repo module.
 
- - pin {version}
+ - pin {module} {version}
 
    The opposite of 'unpin'.  Replacements are removed,
    and _m_'s dependency is pinned to a specific, previously
-   tagged and released version of _{dependency}_.
+   tagged and released version of _{module}_.
    _{version}_ should be in semver form, e.g. `v1.2.3`.

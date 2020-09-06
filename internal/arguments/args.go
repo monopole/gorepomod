@@ -63,7 +63,7 @@ func (a *Args) Dependency() ifc.ModuleShortName {
 
 func (a *Args) Exclusions() (result []string) {
 	// Make sure the list has no repeats.
-	for k, _ := range utils.SliceToSet(excSlice) {
+	for k := range utils.SliceToSet(excSlice) {
 		result = append(result, k)
 	}
 	return

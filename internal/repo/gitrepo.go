@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	dotGit           = ".git"
-	srcPath          = "/src/"
-	dotDir           = "."
-	pathSep          = "/"
+	dotGit  = ".git"
+	srcPath = "/src/"
+	dotDir  = "."
+	pathSep = "/"
 )
 
 type GitRepo struct {
@@ -99,7 +99,7 @@ func (r *GitRepo) Load(exclusions []string) error {
 		}
 
 		// Find the latest version tag
-		v := func () semver.SemVer {
+		v := func() semver.SemVer {
 			versions := pathToVersionMap[inRepoPath]
 			if versions == nil {
 				return semver.Zero()
@@ -183,4 +183,34 @@ func (r *GitRepo) loadTags() (result map[ifc.ModuleShortName]semver.Versions) {
 		sort.Sort(versions)
 	}
 	return
+}
+
+func (r *GitRepo) GetAllThatDependOn(
+	target ifc.LaModule) (result []ifc.Pinned) {
+	for _, m := range r.modules {
+		if yes, v := m.DependsOn(target); yes {
+			result = append(result, ifc.Pinned{M: m, V: v})
+		}
+	}
+	return
+}
+
+func (r *GitRepo) InternalDeps(target ifc.LaModule) (result []ifc.Pinned) {
+	for _, m := range r.modules {
+		if yes, v := target.DependsOn(m); yes {
+			result = append(result, ifc.Pinned{M: m, V: v})
+		}
+	}
+	return
+}
+
+func (r *GitRepo) LenLongestName() int {
+	ans := 0
+	for _, m := range r.modules {
+		l := len(m.ShortName())
+		if l > ans {
+			ans = l
+		}
+	}
+	return ans
 }

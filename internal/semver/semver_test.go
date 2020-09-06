@@ -21,11 +21,11 @@ func TestParse(t *testing.T) {
 			errMsg: "",
 		},
 		"three": {
-			raw:    "heyho",
+			raw:    "pizza",
 			v:      zero,
-			errMsg: "\"heyho\" too short to be a version",
+			errMsg: "\"pizza\" too short to be a version",
 		},
-		"nondigit": {
+		"non-digit": {
 			raw:    "v1.x.222",
 			v:      zero,
 			errMsg: "strconv.Atoi: parsing \"x\": invalid syntax",
