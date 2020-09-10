@@ -63,7 +63,7 @@ func loadProtoModules(
 }
 
 func loadProtoModule(path string) (*protoModule, error) {
-	mPath := filepath.Join(path, GoModFile)
+	mPath := filepath.Join(path, goModFile)
 	content, err := ioutil.ReadFile(mPath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading %q: %v\n", mPath, err)
@@ -90,8 +90,8 @@ func getPathsToModules(
 				}
 				return nil
 			}
-			if info.Name() == GoModFile {
-				result = append(result, path[:len(path)-len(GoModFile)-1])
+			if info.Name() == goModFile {
+				result = append(result, path[:len(path)-len(goModFile)-1])
 				return filepath.SkipDir
 			}
 			return nil

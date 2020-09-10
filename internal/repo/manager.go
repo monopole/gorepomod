@@ -72,7 +72,9 @@ func (mgr *Manager) List() error {
 	return mgr.modules.Apply(func(m misc.LaModule) error {
 		fmt.Printf(
 			format, m.ShortName(),
-			m.VersionLocal(), m.VersionRemote(), mgr.modules.InternalDeps(m))
+			m.VersionLocal().Pretty(),
+			m.VersionRemote().Pretty(),
+			mgr.modules.InternalDeps(m))
 		return nil
 	})
 }
@@ -87,41 +89,64 @@ func determineBranchAndTag(
 		string(m.ShortName()) + "/" + v.String()
 }
 
-func doesBranchExist(gr *gitRunner, name string) (bool, error) {
+func (mgr *Manager) doesRemoteBranchExist(
+	gr *gitRunner, branch string) (bool, error) {
 	out, err := gr.run("branch", "-a")
 	if err != nil {
 		return false, err
 	}
+	lookFor := strings.Join(
+		[]string{"remotes", string(mgr.remoteName), branch}, "/")
 	lines := strings.Split(out, "\n")
 	for _, l := range lines {
-		if strings.Trim(l, " ") == name {
+		if strings.TrimSpace(l) == lookFor {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func assureBranchExists(gr *gitRunner, name string) error {
-	yes, err := doesBranchExist(gr, name)
+func (mgr *Manager) assureBranchExists(gr *gitRunner, branch string) error {
+	yes, err := mgr.doesRemoteBranchExist(gr, branch)
 	if err != nil {
 		return err
 	}
 	if yes {
-		return nil
+		// Assume that if there's a remote, we also have a local.
+		// Probably a bad assumption.
+		return gr.runNoOut("checkout", branch)
 	}
-	out, err := gr.run("checkout", "-b", name)
+	out, err := gr.run("checkout", "-b", branch)
 	if err != nil {
 		return err
 	}
-	if !strings.Contains(out, "switched to new branch") {
+	if gr.doIt && !strings.Contains(out, "switched to new branch") {
 		return fmt.Errorf("unexpected branch creation output: %q", out)
 	}
 	return nil
 }
 
-func (mgr *Manager) pushBranchToRemote(gr *gitRunner, name string) error {
-	_, err := gr.run("push", "-f", string(mgr.remoteName), name)
-	return err
+func (mgr *Manager) pushBranchToRemote(gr *gitRunner, branch string) error {
+	return gr.runNoOut("push", "-f", string(mgr.remoteName), branch)
+}
+
+func (mgr *Manager) createLocalTag(gr *gitRunner, tag, branch string) error {
+	return gr.runNoOut(
+		"tag", "-a",
+		"-m", fmt.Sprintf("\"Release %s on branch %s\"", tag, branch),
+		tag)
+}
+
+func (mgr *Manager) deleteLocalTag(gr *gitRunner, tag string) error {
+	return gr.runNoOut("tag", "--delete", tag)
+}
+
+func (mgr *Manager) pushTagToRemote(gr *gitRunner, tag string) error {
+	return gr.runNoOut("push", string(mgr.remoteName), tag)
+}
+
+func (mgr *Manager) deleteTagFromRemote(gr *gitRunner, tag string) error {
+	return gr.runNoOut("push", string(mgr.remoteName), ":"+refsTags+tag)
 }
 
 func (mgr *Manager) Release(
@@ -146,33 +171,36 @@ func (mgr *Manager) Release(
 	gr := newGitRunner(mgr.AbsPath(), doIt)
 
 	branch, tag := determineBranchAndTag(target, newVersion)
-	if err := assureBranchExists(gr, branch); err != nil {
-		return err
-	}
 
-	// Create the tag locally.
-	if _, err := gr.run(
-		"tag", "-a", tag, "-m",
-		fmt.Sprintf("Release %s on branch %s", tag, branch)); err != nil {
+	if err := mgr.assureBranchExists(gr, branch); err != nil {
 		return err
 	}
-	// Push the branch to the remote.
-	if _, err := gr.run(
-		"push", "-f", string(mgr.remoteName), branch); err != nil {
+	if err := mgr.pushBranchToRemote(gr, branch); err != nil {
 		return err
 	}
-  // Push the tag to the remote.
-	if _, err := gr.run(
-		"push", string(mgr.remoteName), tag); err != nil {
+	if err := mgr.createLocalTag(gr, tag, branch); err != nil {
 		return err
 	}
-	fmt.Println("release complete")
+	if err := mgr.pushTagToRemote(gr, tag); err != nil {
+		return err
+	}
 	return nil
 }
 
-// TODO: implement
 func (mgr *Manager) UnRelease(target misc.LaModule, doIt bool) error {
-	runner := newGitRunner(mgr.AbsPath(), doIt)
-	_, err := runner.run("status")
-	return err
+	fmt.Printf(
+		"Unreleasing %s/%s\n",
+		target.ShortName(), target.VersionRemote())
+
+	_, tag := determineBranchAndTag(target, target.VersionRemote())
+
+	gr := newGitRunner(mgr.AbsPath(), doIt)
+
+	if err := mgr.deleteTagFromRemote(gr, tag); err != nil {
+		return err
+	}
+	if err := mgr.deleteLocalTag(gr, tag); err != nil {
+		return err
+	}
+	return nil
 }

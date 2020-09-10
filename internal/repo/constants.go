@@ -1,3 +1,6 @@
 package repo
 
-const GoModFile = "go.mod"
+const (
+	goModFile = "go.mod"
+	refsTags  = "refs/tags/"
+)

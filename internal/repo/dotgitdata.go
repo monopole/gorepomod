@@ -15,9 +15,7 @@ const (
 	dotGitFileName = ".git"
 	srcHint        = "/src/"
 	pathSep        = "/"
-	refsTags       = "refs/tags"
 )
-
 
 // DotGitData holds basic information about a local .git file
 type DotGitData struct {
@@ -116,7 +114,7 @@ func (dg *DotGitData) NewRepoFactory(
 func (dg *DotGitData) checkModules(modules []*protoModule) error {
 	for _, pm := range modules {
 
-		file := filepath.Join(pm.PathToGoMod(), GoModFile)
+		file := filepath.Join(pm.PathToGoMod(), goModFile)
 
 		// Do the paths make sense?
 		if !strings.HasPrefix(pm.FullPath(), dg.RepoPath()) {
@@ -213,7 +211,7 @@ func loadRemoteTags(
 			// ignore it
 			continue
 		}
-		path := fields[1][len(refsTags)+1:]
+		path := fields[1][len(refsTags):]
 		n, v, err := parseModuleSpec(path)
 		if err != nil {
 			// ignore it
