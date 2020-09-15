@@ -213,7 +213,7 @@ func (gr *Runner) CheckoutReleaseBranch(
 	if err != nil {
 		return err
 	}
-	if gr.doIt && !strings.Contains(out, "Switched to new a branch") {
+	if gr.doIt && !strings.Contains(out, "Switched to a new branch ") {
 		return fmt.Errorf("unexpected branch creation output: %q", out)
 	}
 	return nil
