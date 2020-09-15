@@ -3,9 +3,9 @@ package repo
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/monopole/gorepomod/internal/edit"
+	"github.com/monopole/gorepomod/internal/git"
 	"github.com/monopole/gorepomod/internal/misc"
 	"github.com/monopole/gorepomod/internal/semver"
 )
@@ -89,74 +89,20 @@ func determineBranchAndTag(
 		string(m.ShortName()) + "/" + v.String()
 }
 
-func (mgr *Manager) doesRemoteBranchExist(
-	gr *gitRunner, branch string) (bool, error) {
-	out, err := gr.run("branch", "-a")
-	if err != nil {
-		return false, err
-	}
-	lookFor := strings.Join(
-		[]string{"remotes", string(mgr.remoteName), branch}, "/")
-	lines := strings.Split(out, "\n")
-	for _, l := range lines {
-		if strings.TrimSpace(l) == lookFor {
-			return true, nil
-		}
-	}
-	return false, nil
+func (mgr *Manager) Debug(target misc.LaModule, doIt bool) error {
+	gr := git.New(mgr.AbsPath(), doIt)
+	return gr.Debug(mgr.remoteName)
 }
 
-func (mgr *Manager) assureBranchExists(gr *gitRunner, branch string) error {
-	yes, err := mgr.doesRemoteBranchExist(gr, branch)
-	if err != nil {
-		return err
-	}
-	if yes {
-		// Assume that if there's a remote, we also have a local.
-		// Probably a bad assumption.
-		return gr.runNoOut("checkout", branch)
-	}
-	out, err := gr.run("checkout", "-b", branch)
-	if err != nil {
-		return err
-	}
-	if gr.doIt && !strings.Contains(out, "switched to new branch") {
-		return fmt.Errorf("unexpected branch creation output: %q", out)
-	}
-	return nil
-}
-
-func (mgr *Manager) pushBranchToRemote(gr *gitRunner, branch string) error {
-	return gr.runNoOut("push", "-f", string(mgr.remoteName), branch)
-}
-
-func (mgr *Manager) createLocalTag(gr *gitRunner, tag, branch string) error {
-	return gr.runNoOut(
-		"tag", "-a",
-		"-m", fmt.Sprintf("\"Release %s on branch %s\"", tag, branch),
-		tag)
-}
-
-func (mgr *Manager) deleteLocalTag(gr *gitRunner, tag string) error {
-	return gr.runNoOut("tag", "--delete", tag)
-}
-
-func (mgr *Manager) pushTagToRemote(gr *gitRunner, tag string) error {
-	return gr.runNoOut("push", string(mgr.remoteName), tag)
-}
-
-func (mgr *Manager) deleteTagFromRemote(gr *gitRunner, tag string) error {
-	return gr.runNoOut("push", string(mgr.remoteName), ":"+refsTags+tag)
-}
-
+// Release supports a gitlab flow style release process.
+//
+// * All development happens in the branch named "master".
+// * Each minor release gets its own branch.
+// *
 func (mgr *Manager) Release(
 	target misc.LaModule, bump semver.SvBump, doIt bool) error {
 
 	newVersion := target.VersionLocal().Bump(bump)
-
-	fmt.Printf(
-		"Releasing %s, stepping from %s to %s\n",
-		target.ShortName(), target.VersionLocal(), newVersion)
 
 	if newVersion.Equals(target.VersionRemote()) {
 		return fmt.Errorf(
@@ -168,20 +114,42 @@ func (mgr *Manager) Release(
 			newVersion, target.VersionRemote())
 	}
 
-	gr := newGitRunner(mgr.AbsPath(), doIt)
+	fmt.Printf(
+		"Releasing %s, stepping from %s to %s\n",
+		target.ShortName(), target.VersionLocal(), newVersion)
 
-	branch, tag := determineBranchAndTag(target, newVersion)
+	gr := git.New(mgr.AbsPath(), doIt)
 
-	if err := mgr.assureBranchExists(gr, branch); err != nil {
+	relBranch, relTag := determineBranchAndTag(target, newVersion)
+
+	if err := gr.AssureCleanWorkspace(); err != nil {
 		return err
 	}
-	if err := mgr.pushBranchToRemote(gr, branch); err != nil {
+	if err := gr.CheckoutMainBranch(); err != nil {
 		return err
 	}
-	if err := mgr.createLocalTag(gr, tag, branch); err != nil {
+	if err := gr.MergeFromRemoteMain(mgr.remoteName); err != nil {
 		return err
 	}
-	if err := mgr.pushTagToRemote(gr, tag); err != nil {
+	if err := gr.AssureCleanWorkspace(); err != nil {
+		return err
+	}
+	if err := gr.CheckoutReleaseBranch(mgr.remoteName, relBranch); err != nil {
+		return err
+	}
+	if err := gr.MergeFromRemoteMain(mgr.remoteName); err != nil {
+		return err
+	}
+	if err := gr.PushBranchToRemote(mgr.remoteName, relBranch); err != nil {
+		return err
+	}
+	if err := gr.CreateLocalReleaseTag(relTag, relBranch); err != nil {
+		return err
+	}
+	if err := gr.PushTagToRemote(mgr.remoteName, relTag); err != nil {
+		return err
+	}
+	if err := gr.CheckoutMainBranch(); err != nil {
 		return err
 	}
 	return nil
@@ -194,12 +162,12 @@ func (mgr *Manager) UnRelease(target misc.LaModule, doIt bool) error {
 
 	_, tag := determineBranchAndTag(target, target.VersionRemote())
 
-	gr := newGitRunner(mgr.AbsPath(), doIt)
+	gr := git.New(mgr.AbsPath(), doIt)
 
-	if err := mgr.deleteTagFromRemote(gr, tag); err != nil {
+	if err := gr.DeleteTagFromRemote(mgr.remoteName, tag); err != nil {
 		return err
 	}
-	if err := mgr.deleteLocalTag(gr, tag); err != nil {
+	if err := gr.DeleteLocalTag(tag); err != nil {
 		return err
 	}
 	return nil

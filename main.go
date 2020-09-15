@@ -65,6 +65,8 @@ func actualMain() error {
 		return mgr.Release(targetModule, args.Bump(), args.DoIt())
 	case arguments.UnRelease:
 		return mgr.UnRelease(targetModule, args.DoIt())
+	case arguments.Debug:
+		return mgr.Debug(targetModule, args.DoIt())
 	default:
 		return fmt.Errorf("cannot handle cmd %v", args.GetCommand())
 	}

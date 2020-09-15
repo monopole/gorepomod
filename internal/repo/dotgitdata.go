@@ -3,18 +3,16 @@ package repo
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
+	"github.com/monopole/gorepomod/internal/git"
 	"github.com/monopole/gorepomod/internal/misc"
-	"github.com/monopole/gorepomod/internal/semver"
 	"github.com/monopole/gorepomod/internal/utils"
 )
 
 const (
 	dotGitFileName = ".git"
 	srcHint        = "/src/"
-	pathSep        = "/"
 )
 
 // DotGitData holds basic information about a local .git file
@@ -83,8 +81,8 @@ func (dg *DotGitData) NewRepoFactory(
 		return nil, err
 	}
 
-	runner := newGitRunner(dg.AbsPath(), true)
-	remoteName, err := determineRemoteToUse(runner)
+	runner := git.New(dg.AbsPath(), true)
+	remoteName, err := runner.DetermineRemoteToUse()
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +91,11 @@ func (dg *DotGitData) NewRepoFactory(
 	// have been renamed or deleted; ignore those.
 	// There might be newer tags locally than remote,
 	// so report both.
-	localTags, err := loadLocalTags(runner)
+	localTags, err := runner.LoadLocalTags()
 	if err != nil {
 		return nil, err
 	}
-	remoteTags, err := loadRemoteTags(runner, remoteName)
+	remoteTags, err := runner.LoadRemoteTags(remoteName)
 	if err != nil {
 		return nil, err
 	}
@@ -140,103 +138,4 @@ func (dg *DotGitData) checkModules(modules []*protoModule) error {
 	return nil
 }
 
-// TODO: allow for other remote names.
-func determineRemoteToUse(runner *gitRunner) (misc.TrackedRepo, error) {
-	out, err := runner.run("remote")
-	if err != nil {
-		return "", err
-	}
-	remotes := strings.Split(out, "\n")
-	if len(remotes) < 1 {
-		return "", fmt.Errorf("need at least one remote")
-	}
-	for _, n := range misc.RecognizedRemotes {
-		if contains(remotes, n) {
-			return n, nil
-		}
-	}
-	return "", fmt.Errorf(
-		"unable to find recognized remote %v", misc.RecognizedRemotes)
-}
 
-func contains(list []string, item misc.TrackedRepo) bool {
-	for _, n := range list {
-		if n == string(item) {
-			return true
-		}
-	}
-	return false
-}
-
-func loadLocalTags(
-	runner *gitRunner) (result misc.VersionMap, err error) {
-	var out string
-	out, err = runner.run("tag", "-l")
-	if err != nil {
-		return nil, err
-	}
-	result = make(misc.VersionMap)
-	lines := strings.Split(out, "\n")
-	for _, l := range lines {
-		n, v, err := parseModuleSpec(l)
-		if err != nil {
-			// ignore it
-			continue
-		}
-		result[n] = append(result[n], v)
-	}
-	for _, versions := range result {
-		sort.Sort(versions)
-	}
-	return
-}
-
-func loadRemoteTags(
-	runner *gitRunner,
-	remote misc.TrackedRepo) (result misc.VersionMap, err error) {
-	var out string
-	out, err = runner.run("ls-remote", "--ref", string(remote))
-	if err != nil {
-		return nil, err
-	}
-	result = make(misc.VersionMap)
-	lines := strings.Split(out, "\n")
-	for _, l := range lines {
-		fields := strings.Fields(l)
-		if len(fields) < 2 {
-			// ignore it
-			continue
-		}
-		if !strings.HasPrefix(fields[1], refsTags) {
-			// ignore it
-			continue
-		}
-		path := fields[1][len(refsTags):]
-		n, v, err := parseModuleSpec(path)
-		if err != nil {
-			// ignore it
-			continue
-		}
-		result[n] = append(result[n], v)
-	}
-	for _, versions := range result {
-		sort.Sort(versions)
-	}
-	return
-}
-
-func parseModuleSpec(
-	path string) (n misc.ModuleShortName, v semver.SemVer, err error) {
-	fields := strings.Split(path, pathSep)
-	v, err = semver.Parse(fields[len(fields)-1])
-	if err != nil {
-		// Silently ignore versions we don't understand.
-		return "", v, err
-	}
-	n = misc.ModuleAtTop
-	if len(fields) > 1 {
-		n = misc.ModuleShortName(
-			strings.Join(fields[:len(fields)-1], pathSep))
-	}
-	return
-}

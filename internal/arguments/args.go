@@ -17,11 +17,12 @@ const (
 	cmdList      = "list"
 	cmdRelease   = "release"
 	cmdUnRelease = "unrelease"
+	cmdDebug = "debug"
 )
 
 var (
 	commands = []string{
-		cmdPin, cmdUnPin, cmdTidy, cmdList, cmdRelease, cmdUnRelease}
+		cmdPin, cmdUnPin, cmdTidy, cmdList, cmdRelease, cmdUnRelease, cmdDebug}
 
 	// TODO: make this a PATH-like flag
 	// e.g.: --excludes ".git:.idea:site:docs"
@@ -46,6 +47,7 @@ const (
 	List
 	Release
 	UnRelease
+	Debug
 )
 
 type Args struct {
@@ -116,22 +118,22 @@ func newArgs() *myArgs {
 
 func Parse() (result *Args, err error) {
 	result = &Args{}
-	myArgs := newArgs()
-	result.doIt = myArgs.doIt
+	clArgs := newArgs()
+	result.doIt = clArgs.doIt
 
 	result.moduleName = misc.ModuleUnknown
-	if !myArgs.more() {
+	if !clArgs.more() {
 		return nil, fmt.Errorf("command needs at least one arg")
 	}
-	command:= myArgs.next()
+	command:= clArgs.next()
 	switch command {
 	case cmdPin:
-		if !myArgs.more() {
+		if !clArgs.more() {
 			return nil, fmt.Errorf("pin needs a moduleName to pin")
 		}
-		result.moduleName = misc.ModuleShortName(myArgs.next())
-		if myArgs.more() {
-			result.version, err = semver.Parse(myArgs.next())
+		result.moduleName = misc.ModuleShortName(clArgs.next())
+		if clArgs.more() {
+			result.version, err = semver.Parse(clArgs.next())
 			if err != nil {
 				return nil, err
 			}
@@ -140,23 +142,23 @@ func Parse() (result *Args, err error) {
 		}
 		result.cmd = Pin
 	case cmdUnPin:
-		if !myArgs.more() {
+		if !clArgs.more() {
 			return nil, fmt.Errorf("unpin needs a moduleName to unpin")
 		}
-		result.moduleName = misc.ModuleShortName(myArgs.next())
+		result.moduleName = misc.ModuleShortName(clArgs.next())
 		result.cmd = UnPin
 	case cmdTidy:
 		result.cmd = Tidy
 	case cmdList:
 		result.cmd = List
 	case cmdRelease:
-		if !myArgs.more() {
+		if !clArgs.more() {
 			return nil, fmt.Errorf("specify {module} to release")
 		}
-		result.moduleName = misc.ModuleShortName(myArgs.next())
+		result.moduleName = misc.ModuleShortName(clArgs.next())
 		bump := "patch"
-		if myArgs.more() {
-			bump = myArgs.next()
+		if clArgs.more() {
+			bump = clArgs.next()
 		}
 		switch bump {
 		case "major":
@@ -171,17 +173,23 @@ func Parse() (result *Args, err error) {
 		}
 		result.cmd = Release
 	case cmdUnRelease:
-		if !myArgs.more() {
+		if !clArgs.more() {
 			return nil, fmt.Errorf("specify {module} to unrelease")
 		}
-		result.moduleName = misc.ModuleShortName(myArgs.next())
+		result.moduleName = misc.ModuleShortName(clArgs.next())
 		result.cmd = UnRelease
+	case cmdDebug:
+		if !clArgs.more() {
+			return nil, fmt.Errorf("specify {module} to debug")
+		}
+		result.moduleName = misc.ModuleShortName(clArgs.next())
+		result.cmd = Debug
 	default:
 		return nil, fmt.Errorf(
 			"unknown command %q; must be one of %v", command, commands)
 	}
-	if myArgs.more() {
-		return nil, fmt.Errorf("unknown extra args: %v", myArgs.args)
+	if clArgs.more() {
+		return nil, fmt.Errorf("unknown extra args: %v", clArgs.args)
 	}
 	return
 }
