@@ -125,6 +125,9 @@ func (mgr *Manager) Release(
 	if err := gr.AssureCleanWorkspace(); err != nil {
 		return err
 	}
+	if err := gr.FetchRemote(mgr.remoteName); err != nil {
+		return err
+	}
 	if err := gr.CheckoutMainBranch(); err != nil {
 		return err
 	}

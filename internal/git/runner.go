@@ -183,6 +183,11 @@ func (gr *Runner) CheckoutMainBranch() error {
 	return gr.runNoOut("checkout", mainBranch)
 }
 
+// FetchRemote does that.
+func (gr *Runner) FetchRemote(remote misc.TrackedRepo) error {
+	return gr.runNoOut("fetch", string(remote))
+}
+
 // MergeFromRemoteMain does a fast forward only merge with main branch.
 func (gr *Runner) MergeFromRemoteMain(remote misc.TrackedRepo) error {
 	return gr.runNoOut("merge", "--ff-only",
