@@ -89,8 +89,8 @@ func determineBranchAndTag(
 		string(m.ShortName()) + "/" + v.String()
 }
 
-func (mgr *Manager) Debug(target misc.LaModule, doIt bool) error {
-	gr := git.New(mgr.AbsPath(), doIt)
+func (mgr *Manager) Debug(_ misc.LaModule, doIt bool) error {
+	gr := git.NewLoud(mgr.AbsPath(), doIt)
 	return gr.Debug(mgr.remoteName)
 }
 
@@ -114,13 +114,13 @@ func (mgr *Manager) Release(
 			newVersion, target.VersionRemote())
 	}
 
+	gr := git.NewLoud(mgr.AbsPath(), doIt)
+
+	relBranch, relTag := determineBranchAndTag(target, newVersion)
+
 	fmt.Printf(
 		"Releasing %s, stepping from %s to %s\n",
 		target.ShortName(), target.VersionLocal(), newVersion)
-
-	gr := git.New(mgr.AbsPath(), doIt)
-
-	relBranch, relTag := determineBranchAndTag(target, newVersion)
 
 	if err := gr.AssureCleanWorkspace(); err != nil {
 		return err
@@ -165,7 +165,7 @@ func (mgr *Manager) UnRelease(target misc.LaModule, doIt bool) error {
 
 	_, tag := determineBranchAndTag(target, target.VersionRemote())
 
-	gr := git.New(mgr.AbsPath(), doIt)
+	gr := git.NewLoud(mgr.AbsPath(), doIt)
 
 	if err := gr.DeleteTagFromRemote(mgr.remoteName, tag); err != nil {
 		return err

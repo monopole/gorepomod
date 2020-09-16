@@ -15,7 +15,26 @@ const (
 	pathSep        = "/"
 	remoteOrigin   = misc.TrackedRepo("origin")
 	remoteUpstream = misc.TrackedRepo("upstream")
-	mainBranch   = "master"
+	mainBranch     = "master"
+	indent         = "  "
+	doing          = "  [x] "
+	faking         = "  [ ] "
+)
+
+type safetyLevel int
+
+const (
+	// Commands that don't hurt, e.g. checking out an existing branch.
+	noHarmDone safetyLevel = iota
+	// Commands that write, and could be hard to undo.
+	undoPainful
+)
+
+type Verbosity int
+
+const (
+	Low Verbosity = iota
+	High
 )
 
 var recognizedRemotes = []misc.TrackedRepo{remoteUpstream, remoteOrigin}
@@ -25,17 +44,54 @@ type Runner struct {
 	// From which directory do we run the commands.
 	workDir string
 	// Run commands, or merely print commands.
-	doIt    bool
+	doIt bool
+	// Run commands, or merely print commands.
+	verbosity Verbosity
 }
 
-func New(wd string, doIt bool) *Runner {
-	return &Runner{workDir: wd, doIt: doIt}
+func NewLoud(wd string, doIt bool) *Runner {
+	return newRunner(wd, doIt, High)
 }
 
-func (gr *Runner) run(args ...string) (string, error) {
+func NewQuiet(wd string, doIt bool) *Runner {
+	return newRunner(wd, doIt, Low)
+}
+
+func newRunner(wd string, doIt bool, v Verbosity) *Runner {
+	return &Runner{workDir: wd, doIt: doIt, verbosity:v}
+}
+
+func (gr *Runner) comment(f string) {
+	if gr.verbosity == Low {
+		return
+	}
+	fmt.Print(indent)
+	fmt.Println(f)
+}
+
+func (gr *Runner) doing(s string) {
+	if gr.verbosity == Low {
+		return
+	}
+	fmt.Print(indent)
+	fmt.Print(doing)
+	fmt.Println(s)
+}
+
+func (gr *Runner) faking(s string) {
+	if gr.verbosity == Low {
+		return
+	}
+	fmt.Print(indent)
+	fmt.Print(faking)
+	fmt.Println(s)
+}
+
+func (gr *Runner) run(sl safetyLevel, args ...string) (string, error) {
 	c := exec.Command("git", args...)
 	c.Dir = gr.workDir
-	if gr.doIt {
+	if gr.doIt || sl == noHarmDone {
+		gr.doing(c.String())
 		out, err := c.CombinedOutput()
 		if err != nil {
 			return "", fmt.Errorf(
@@ -43,18 +99,19 @@ func (gr *Runner) run(args ...string) (string, error) {
 		}
 		return string(out), nil
 	}
-	fmt.Printf("in %-60s; %s\n", c.Dir, c.String())
+	gr.faking(c.String())
 	return "", nil
 }
 
-func (gr *Runner) runNoOut(args ...string) error {
-	_, err := gr.run(args...)
+func (gr *Runner) runNoOut(s safetyLevel, args ...string) error {
+	_, err := gr.run(s, args...)
 	return err
 }
 
 // TODO: allow for other remote names.
 func (gr *Runner) DetermineRemoteToUse() (misc.TrackedRepo, error) {
-	out, err := gr.run("remote")
+	gr.comment("determining remote to use")
+	out, err := gr.run(noHarmDone, "remote")
 	if err != nil {
 		return "", err
 	}
@@ -81,8 +138,9 @@ func contains(list []string, item misc.TrackedRepo) bool {
 }
 
 func (gr *Runner) LoadLocalTags() (result misc.VersionMap, err error) {
+	gr.comment("loading local tags")
 	var out string
-	out, err = gr.run("tag", "-l")
+	out, err = gr.run(noHarmDone, "tag", "-l")
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +162,9 @@ func (gr *Runner) LoadLocalTags() (result misc.VersionMap, err error) {
 
 func (gr *Runner) LoadRemoteTags(
 	remote misc.TrackedRepo) (result misc.VersionMap, err error) {
+	gr.comment("loading remote tags")
 	var out string
-	out, err = gr.run("ls-remote", "--ref", string(remote))
+	out, err = gr.run(noHarmDone, "ls-remote", "--ref", string(remote))
 	if err != nil {
 		return nil, err
 	}
@@ -151,28 +210,29 @@ func parseModuleSpec(
 	return
 }
 
-
 func (gr *Runner) Debug(remote misc.TrackedRepo) error {
 	return nil // gr.CheckoutMainBranch(remote)
 }
 
 func (gr *Runner) AssureCleanWorkspace() error {
-	out, err := gr.run("status")
+	gr.comment("assuring a clean workspace")
+	out, err := gr.run(noHarmDone, "status")
 	if err != nil {
 		return err
 	}
-	if gr.doIt && !strings.Contains(out, "nothing to commit, working tree clean") {
+	if !strings.Contains(out, "nothing to commit, working tree clean") {
 		return fmt.Errorf("the workspace isn't clean")
 	}
 	return nil
 }
 
 func (gr *Runner) AssureOnMainBranch() error {
-	out, err := gr.run("status")
+	gr.comment("assuring main branch checked out")
+	out, err := gr.run(noHarmDone, "status")
 	if err != nil {
 		return err
 	}
-	if gr.doIt && !strings.Contains(out, "On branch " + mainBranch) {
+	if !strings.Contains(out, "On branch "+mainBranch) {
 		return fmt.Errorf("expected to be on branch %q", mainBranch)
 	}
 	return nil
@@ -180,48 +240,59 @@ func (gr *Runner) AssureOnMainBranch() error {
 
 // CheckoutMainBranch does that.
 func (gr *Runner) CheckoutMainBranch() error {
-	return gr.runNoOut("checkout", mainBranch)
+	gr.comment("checking out main branch")
+	return gr.runNoOut(noHarmDone, "checkout", mainBranch)
 }
 
 // FetchRemote does that.
 func (gr *Runner) FetchRemote(remote misc.TrackedRepo) error {
-	return gr.runNoOut("fetch", string(remote))
+	gr.comment("fetching remote")
+	return gr.runNoOut(noHarmDone, "fetch", string(remote))
 }
 
 // MergeFromRemoteMain does a fast forward only merge with main branch.
 func (gr *Runner) MergeFromRemoteMain(remote misc.TrackedRepo) error {
-	return gr.runNoOut("merge", "--ff-only",
-		strings.Join(
-			[]string{string(remote), mainBranch}, pathSep))
+	remo := strings.Join(
+		[]string{string(remote), mainBranch}, pathSep)
+	gr.comment("merging from remote")
+	return gr.runNoOut(undoPainful, "merge", "--ff-only", remo)
 }
 
 // CheckoutReleaseBranch attempts to checkout or create a branch.
 // If it's on the remote already, fail if we cannot check it out locally.
 func (gr *Runner) CheckoutReleaseBranch(
-		remote misc.TrackedRepo, branch string) error {
+	remote misc.TrackedRepo, branch string) error {
 	yes, err := gr.doesRemoteBranchExist(remote, branch)
 	if err != nil {
 		return err
 	}
 	if yes {
-		// Assume that if there's a remote, we also have a local.
-		// Might be a bad assumption; if so, this returns an error.
-		return gr.runNoOut("checkout", branch)
+		gr.comment("checking out branch")
+		if out, err := gr.run(noHarmDone, "checkout", branch); err != nil {
+			fmt.Printf("error with checkout: %q", err.Error())
+			fmt.Printf("out: %q", out)
+			return fmt.Errorf(
+				"branch %q exists on remote %q, but isn't present locally",
+				branch, string(remote))
+		}
+		return nil
 	}
-	// Create the branch and check it out.
-	out, err := gr.run("checkout", "-b", branch)
+	gr.comment("creating branch")
+	// The branch doesn't exist.  Create it.
+	out, err := gr.run(noHarmDone, "checkout", "-b", branch)
 	if err != nil {
 		return err
 	}
-	if gr.doIt && !strings.Contains(out, "Switched to new a branch") {
+	if !strings.Contains(out, "Switched to a new branch ") {
 		return fmt.Errorf("unexpected branch creation output: %q", out)
 	}
 	return nil
 }
 
 func (gr *Runner) doesRemoteBranchExist(
-		remote misc.TrackedRepo, branch string) (bool, error) {
-	out, err := gr.run("branch", "-r")
+	remote misc.TrackedRepo, branch string) (bool, error) {
+	gr.comment("looking for branch on remote")
+	out, err := gr.run(noHarmDone, "branch", "-r")
 	if err != nil {
 		return false, err
 	}
@@ -237,26 +308,33 @@ func (gr *Runner) doesRemoteBranchExist(
 
 func (gr *Runner) PushBranchToRemote(
 	remote misc.TrackedRepo, branch string) error {
-	return gr.runNoOut("push", "-f", string(remote), branch)
+	gr.comment("pushing branch to remote")
+	return gr.runNoOut(undoPainful, "push", "-f", string(remote), branch)
 }
 
 func (gr *Runner) CreateLocalReleaseTag(tag, branch string) error {
+	msg := fmt.Sprintf("\"Release %s on branch %s\"", tag, branch)
+	gr.comment("creating local release tag")
 	return gr.runNoOut(
+		undoPainful,
 		"tag", "-a",
-		"-m", fmt.Sprintf("\"Release %s on branch %s\"", tag, branch),
+		"-m", msg,
 		tag)
 }
 
 func (gr *Runner) DeleteLocalTag(tag string) error {
-	return gr.runNoOut("tag", "--delete", tag)
+	gr.comment("deleting local tag")
+	return gr.runNoOut(undoPainful, "tag", "--delete", tag)
 }
 
 func (gr *Runner) PushTagToRemote(
 	remote misc.TrackedRepo, tag string) error {
-	return gr.runNoOut("push", string(remote), tag)
+	gr.comment("pushing tag to remote")
+	return gr.runNoOut(undoPainful, "push", string(remote), tag)
 }
 
 func (gr *Runner) DeleteTagFromRemote(
 	remote misc.TrackedRepo, tag string) error {
-	return gr.runNoOut("push", string(remote), ":"+refsTags+tag)
+	gr.comment("deleting tags from remote")
+	return gr.runNoOut(undoPainful, "push", string(remote), ":"+refsTags+tag)
 }

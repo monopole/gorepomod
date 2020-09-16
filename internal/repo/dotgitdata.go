@@ -81,7 +81,7 @@ func (dg *DotGitData) NewRepoFactory(
 		return nil, err
 	}
 
-	runner := git.New(dg.AbsPath(), true)
+	runner := git.NewQuiet(dg.AbsPath(), true)
 	remoteName, err := runner.DetermineRemoteToUse()
 	if err != nil {
 		return nil, err
