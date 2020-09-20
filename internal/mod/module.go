@@ -1,6 +1,7 @@
 package mod
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/monopole/gorepomod/internal/misc"
@@ -67,4 +68,12 @@ func (m *Module) DependsOn(target misc.LaModule) (bool, semver.SemVer) {
 		}
 	}
 	return false, semver.Zero()
+}
+
+func (m *Module) GetReplacements() (result []string) {
+	for _, r := range m.mf.Replace {
+		result = append(
+			result, fmt.Sprintf("%s => %s", r.Old.String(), r.New.String()))
+	}
+	return
 }

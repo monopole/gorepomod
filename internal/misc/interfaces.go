@@ -47,6 +47,9 @@ type LaModule interface {
 	// Does this module depend on the argument, and
 	// if so at what version?
 	DependsOn(LaModule) (bool, semver.SemVer)
+
+	// GetReplacements returns a list of replacements.
+	GetReplacements() []string
 }
 
 // VersionMap holds the versions associated with modules.

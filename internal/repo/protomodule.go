@@ -16,6 +16,7 @@ const (
 	dotDir = "."
 )
 
+// protoModule holds parts being collected to represent a module.
 type protoModule struct {
 	pathToGoMod string
 	mf          *modfile.File

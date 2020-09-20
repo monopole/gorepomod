@@ -52,11 +52,15 @@ func (e *Editor) Tidy() error {
 }
 
 func (e *Editor) Pin(target misc.LaModule, oldV, newV semver.SemVer) error {
-	return e.run(
+	err := e.run(
 		"edit",
 		"-dropreplace="+target.ImportPath()+"@"+oldV.String(),
 		"-require="+target.ImportPath()+"@"+newV.String(),
 	)
+	if err != nil {
+		return err
+	}
+	return e.run("tidy")
 }
 
 func (e *Editor) UnPin(target misc.LaModule, oldV semver.SemVer) error {
@@ -67,8 +71,12 @@ func (e *Editor) UnPin(target misc.LaModule, oldV semver.SemVer) error {
 	r.WriteString("=")
 	r.WriteString(upstairs(e.module.ShortName().Depth()))
 	r.WriteString(string(target.ShortName()))
-	return e.run(
+	err := e.run(
 		"edit",
 		"-replace="+r.String(),
 	)
+	if err != nil {
+		return err
+	}
+	return e.run("tidy")
 }

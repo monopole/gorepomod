@@ -62,18 +62,29 @@ func (mgr *Manager) UnPin(doIt bool, target misc.LaModule) error {
 	})
 }
 
+func hasUnPinnedDeps(m misc.LaModule) string {
+	if len(m.GetReplacements()) > 0 {
+		return "yes"
+	}
+	return ""
+}
+
 func (mgr *Manager) List() error {
 	fmt.Printf("   src path: %s\n", mgr.dg.SrcPath())
 	fmt.Printf("  repo path: %s\n", mgr.RepoPath())
 	fmt.Printf("     remote: %s\n", mgr.remoteName)
-	format := "%-" + strconv.Itoa(mgr.modules.LenLongestName()+2) + "s%-11s%-11s%s\n"
+	format := "%-" +
+		strconv.Itoa(mgr.modules.LenLongestName()+2) +
+		"s%-11s%-11s%17s  %s\n"
 	fmt.Printf(
-		format, "NAME", "LOCAL", "REMOTE", "INTRA-REPO-DEPENDENCIES")
+		format, "NAME", "LOCAL", "REMOTE",
+		"HAS-UNPINNED-DEPS", "INTRA-REPO-DEPENDENCIES")
 	return mgr.modules.Apply(func(m misc.LaModule) error {
 		fmt.Printf(
 			format, m.ShortName(),
 			m.VersionLocal().Pretty(),
 			m.VersionRemote().Pretty(),
+			hasUnPinnedDeps(m),
 			mgr.modules.InternalDeps(m))
 		return nil
 	})
@@ -101,6 +112,12 @@ func (mgr *Manager) Debug(_ misc.LaModule, doIt bool) error {
 // *
 func (mgr *Manager) Release(
 	target misc.LaModule, bump semver.SvBump, doIt bool) error {
+
+	if reps := target.GetReplacements(); len(reps) > 0 {
+		return fmt.Errorf(
+			"to release %q, first pin these replacements: %v",
+			target.ShortName(), reps)
+	}
 
 	newVersion := target.VersionLocal().Bump(bump)
 

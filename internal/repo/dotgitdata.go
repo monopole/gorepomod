@@ -13,6 +13,7 @@ import (
 const (
 	dotGitFileName = ".git"
 	srcHint        = "/src/"
+	goModFile      = "go.mod"
 )
 
 // DotGitData holds basic information about a local .git file
@@ -37,12 +38,6 @@ func (dg *DotGitData) RepoPath() string {
 
 func (dg *DotGitData) AbsPath() string {
 	return filepath.Join(dg.srcPath, dg.repoPath)
-}
-
-func (dg *DotGitData) Report() {
-	fmt.Printf("   src path: %s\n", dg.SrcPath())
-	fmt.Printf("  repo path: %s\n", dg.RepoPath())
-	fmt.Printf("   abs path: %s\n", dg.AbsPath())
 }
 
 // NewDotGitDataFromPath wants the incoming path to hold dotGit
@@ -137,5 +132,3 @@ func (dg *DotGitData) checkModules(modules []*protoModule) error {
 	}
 	return nil
 }
-
-
